@@ -71,13 +71,36 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}
 
+# sca scan using trivy
       - name: Scan Image with Trivy
+        id: trivy
         uses: aquasecurity/trivy-action@v0.36.0
+        continue-on-error: true
         with:
           image-ref: ${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.tag }}
+          format: sarif
+          output: trivy-results.sarif
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
+
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+
+      - name: Upload Trivy Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-results
+          path: trivy-results.sarif
+
+      - name: Fail if vulnerabilities found
+        if: steps.trivy.outcome == 'failure'
+        run: exit 1
+      
 
       - name: Push Docker Image
         uses: docker/build-push-action@v6
