@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/dg-client}
 
 jobs:
   security-scan:
@@ -51,7 +51,7 @@ jobs:
       - name: Generate Tag
         id: vars
         run: |
-          TAG=v${GITHUB_RUN_NUMBER}
+          TAG=v0.0.${GITHUB_RUN_NUMBER}
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Login to Docker Hub
