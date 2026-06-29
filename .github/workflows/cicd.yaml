@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  security-events: write
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/dg-client
@@ -121,17 +122,18 @@ jobs:
         with:
           repository: ankur-06-2003/menifest999
           token: ${{ secrets.K8S_REPO_TOKEN }}
-          path: manifests
+          path: menifest999
+
 
       - name: Update Deployment Image
         run: |
-          cd manifests/client
+          cd menifest999/client
 
           sed -i "s|image: .*|image: ${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}|g" client_deployment.yaml
 
       - name: Commit and Push Changes
         run: |
-          cd manifests
+          cd menifest999
 
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
@@ -141,6 +143,58 @@ jobs:
           git commit -m "Update image ${{ needs.build-and-push.outputs.image_tag }}" || exit 0
 
           git push origin main
+
+# slack notification for success and failure of pipeline
+  slack-notification:
+    name: Slack Notification
+    runs-on: ubuntu-latest
+    if: always()
+
+    needs:
+      - security-scan
+      - build-and-push
+      - update-gitops
+
+    steps:
+      - name: Send Success Notification
+        if: |
+          needs.security-scan.result == 'success' &&
+          needs.build-and-push.result == 'success' &&
+          needs.update-gitops.result == 'success'
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_COLOR: good
+          SLACK_TITLE: "✅ CI/CD Pipeline Successful"
+          SLACK_MESSAGE: |
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Image: ${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image_tag }}
+            Workflow: ${{ github.workflow }}
+            Triggered By: ${{ github.actor }}
+
+      - name: Send Failure Notification
+        if: |
+          needs.security-scan.result == 'failure' ||
+          needs.build-and-push.result == 'failure' ||
+          needs.update-gitops.result == 'failure'
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_COLOR: danger
+          SLACK_TITLE: "❌ CI/CD Pipeline Failed"
+          SLACK_MESSAGE: |
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Workflow: ${{ github.workflow }}
+            Failed Job:
+              Security Scan: ${{ needs.security-scan.result }}
+              Build: ${{ needs.build-and-push.result }}
+              GitOps: ${{ needs.update-gitops.result }}
+
+            Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
 
   summary:
     runs-on: ubuntu-latest
