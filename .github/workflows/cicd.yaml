@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/dg-client}
+  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/dg-client
 
 jobs:
   security-scan:
